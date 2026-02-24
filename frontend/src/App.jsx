@@ -6,7 +6,7 @@ import Confirmation from './components/Confirmation';
 import { Ticket, Loader2 } from 'lucide-react';
 
 // API Configuration
-const API_URL = 'http://localhost:5000/api';
+const API_URL = import.meta.env.VITE_API_URL || '/api';
 
 function App() {
   const [view, setView] = useState('list'); // list, register, confirmation, tickets

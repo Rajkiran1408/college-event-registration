@@ -1,13 +1,30 @@
 const express = require('express');
 const cors = require('cors');
+const path = require('path');
 const { createClient } = require('@supabase/supabase-js');
 require('dotenv').config();
 
 const app = express();
 const port = process.env.PORT || 5000;
 
-// Middleware
-app.use(cors());
+// CORS — allow your frontend origin(s)
+const allowedOrigins = [
+    'http://localhost:5173',         // Vite dev server default
+    'http://localhost:3000',         // alternative local dev
+    process.env.FRONTEND_URL,        // production frontend URL (set in .env)
+].filter(Boolean);
+
+app.use(cors({
+    origin: (origin, callback) => {
+        // Allow requests with no origin (e.g. mobile apps, Postman)
+        if (!origin || allowedOrigins.includes(origin)) {
+            callback(null, true);
+        } else {
+            callback(new Error(`CORS policy: origin ${origin} not allowed`));
+        }
+    },
+    credentials: true,
+}));
 app.use(express.json());
 
 // Supabase Client
@@ -22,7 +39,7 @@ if (!supabaseUrl || !supabaseKey) {
 
 const supabase = createClient(supabaseUrl, supabaseKey);
 
-// Routes
+// --- API Routes ---
 
 // Get all events
 app.get('/api/events', async (req, res) => {
@@ -68,6 +85,17 @@ app.post('/api/registrations', async (req, res) => {
         console.error('Error creating registration:', error);
         res.status(500).json({ error: error.message });
     }
+});
+
+// --- Static Frontend Serving (for Production) ---
+
+// Serve static files from the frontend build folder
+const frontendBuildPath = path.join(__dirname, '../frontend/dist');
+app.use(express.static(frontendBuildPath));
+
+// Catch-all route to serve the frontend index.html for any non-API routes
+app.get(/^(?!\/api).+/, (req, res) => {
+    res.sendFile(path.join(frontendBuildPath, 'index.html'));
 });
 
 app.listen(port, () => {
