@@ -10,6 +10,7 @@ const port = process.env.PORT || 5000;
 // CORS — allow your frontend origin(s)
 const allowedOrigins = [
     'http://localhost:5173',         // Vite dev server default
+    'http://localhost:5174',         // Vite dev server fallback port
     'http://localhost:3000',         // alternative local dev
     process.env.FRONTEND_URL,        // production frontend URL (set in .env)
 ].filter(Boolean);

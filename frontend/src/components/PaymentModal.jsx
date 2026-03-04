@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { CreditCard, Lock, AlertCircle, CheckCircle } from 'lucide-react';
 
 export default function PaymentModal({ amount, onCancel, onSuccess }) {
