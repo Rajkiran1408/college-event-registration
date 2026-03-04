@@ -1,6 +1,5 @@
 const express = require('express');
 const cors = require('cors');
-const path = require('path');
 const { createClient } = require('@supabase/supabase-js');
 require('dotenv').config();
 
@@ -12,7 +11,8 @@ const allowedOrigins = [
     'http://localhost:5173',         // Vite dev server default
     'http://localhost:5174',         // Vite dev server fallback port
     'http://localhost:3000',         // alternative local dev
-    process.env.FRONTEND_URL,        // production frontend URL (set in .env)
+    // Strip trailing slash — browsers send origins without one
+    process.env.FRONTEND_URL?.replace(/\/$/, ''),
 ].filter(Boolean);
 
 app.use(cors({
@@ -33,17 +33,26 @@ const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseKey = process.env.SUPABASE_ANON_KEY;
 
 if (!supabaseUrl || !supabaseKey) {
-    console.error("❌ Error: Missing Supabase credentials!");
-    console.error("Please create a .env file in the backend directory with SUPABASE_URL and SUPABASE_ANON_KEY.");
-    process.exit(1);
+    console.error("❌ Error: Missing Supabase credentials in environment variables!");
+    // Don't call process.exit(1) — that crashes Vercel serverless functions
 }
 
-const supabase = createClient(supabaseUrl, supabaseKey);
+const supabase = supabaseUrl && supabaseKey
+    ? createClient(supabaseUrl, supabaseKey)
+    : null;
 
 // --- API Routes ---
 
+// Health check
+app.get('/api', (req, res) => {
+    res.json({ status: 'Backend is running ✅' });
+});
+
 // Get all events
 app.get('/api/events', async (req, res) => {
+    if (!supabase) {
+        return res.status(500).json({ error: 'Server misconfigured: missing Supabase credentials.' });
+    }
     try {
         const { data, error } = await supabase
             .from('events')
@@ -60,6 +69,9 @@ app.get('/api/events', async (req, res) => {
 
 // Create registration
 app.post('/api/registrations', async (req, res) => {
+    if (!supabase) {
+        return res.status(500).json({ error: 'Server misconfigured: missing Supabase credentials.' });
+    }
     const { event_id, full_name, email, student_id, department, year, payment_id, amount } = req.body;
 
     try {
@@ -88,17 +100,13 @@ app.post('/api/registrations', async (req, res) => {
     }
 });
 
-// --- Static Frontend Serving (for Production) ---
+// Only start the local server when NOT running on Vercel
+if (process.env.VERCEL !== '1') {
+    app.listen(port, () => {
+        console.log(`Server running on port ${port}`);
+    });
+}
 
-// Serve static files from the frontend build folder
-const frontendBuildPath = path.join(__dirname, '../frontend/dist');
-app.use(express.static(frontendBuildPath));
+// Export for Vercel serverless
+module.exports = app;
 
-// Catch-all route to serve the frontend index.html for any non-API routes
-app.get(/^(?!\/api).+/, (req, res) => {
-    res.sendFile(path.join(frontendBuildPath, 'index.html'));
-});
-
-app.listen(port, () => {
-    console.log(`Server running on port ${port}`);
-});
